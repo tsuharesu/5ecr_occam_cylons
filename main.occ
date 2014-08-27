@@ -19,9 +19,19 @@ VAL [][]BYTE screen IS
 VAL []BYTE screen.points IS [1,1,20,11]:
 --}}}
 
+PROC print.screen (CHAN BYTE scr!)
+  SEQ
+    cursor.invisible(scr!)
+    cursor.x.y(1, 1, scr!)
+    SEQ y = 0 FOR SIZE screen
+      SEQ
+        out.string(screen[y], 0, scr!)
+        out.string("*n",0,scr!)
+:
+
 PROC main (CHAN BYTE kyb?, scr!, err!)
-  SEQ y = 0 FOR SIZE screen
-    SEQ
-      out.string(screen[y], 0, scr!)
-      out.string("*n", 0, scr!)
+  SEQ
+    erase.screen(scr!)
+    WHILE TRUE
+      print.screen(scr!)
 :
