@@ -4,34 +4,67 @@
 VAL [][]BYTE screen IS
   --"0        1         2         3         4         5         6         7        ",
   --"123456789012345678901234567890123456789012345678901234567890123456789012345678"
-   ["####################",  -- 01
-    "#                  #",  --  2
-    "#                  #",  --  3
-    "#                  #",  --  4
-    "#                  #",  --  5
-    "#                  #",  --  6
-    "#                  #",  --  7
-    "#                  #",  --  8
-    "#                  #",  --  9
-    "#                  #",  -- 10
-    "####################"]: --  1
+   ["############################################################",  -- 01
+    "#o                                                         #",  --  2
+    "#                                                          #",  --  3
+    "#                                                          #",  --  4
+    "#                                                          #",  --  5
+    "#                                                          #",  --  6
+    "#                                                          #",  --  7
+    "#                                                          #",  --  8
+    "#                                                          #",  --  9
+    "#                                                          #",  -- 10
+    "############################################################"]: --  1
   --"123456789012345678901234567890123456789012345678901234567890123456789012345678"
 VAL []BYTE screen.points IS [1,1,20,11]:
+
+VAL INT DIR.UP IS 0:
+VAL INT DIR.RIGHT IS 1:
+VAL INT DIR.DOWN IS 2:
+VAL INT DIR.LEFT IS 3:
 --}}}
 
 PROC print.screen (CHAN BYTE scr!)
   SEQ
     cursor.invisible(scr!)
     cursor.x.y(1, 1, scr!)
-    SEQ y = 0 FOR SIZE screen
+    SEQ x = 0 FOR SIZE screen
       SEQ
-        out.string(screen[y], 0, scr!)
-        out.string("*n",0,scr!)
+        out.string(screen[x], 0, scr!)
+        out.string("*n", 0, scr!)
+:
+
+--* Move the Cylon, removing the point
+-- @params direction 0 - up, 1 - right, 2 - down, 3 - left
+PROC move.cylon(CHAN BYTE scr!, VAL INT direction)
+  INITIAL BYTE cylon.x IS 2:
+  INITIAL BYTE cylon.y IS 2:
+  TIMER tim:
+  INT t:
+  SEQ
+    tim ? t                 -- read current time
+    t := t PLUS 100000          -- add delay
+    tim ? AFTER t           -- wait until time "t"
+    cursor.x.y(cylon.x, cylon.y, scr!)
+    out.string(" ", 0, scr!)
+    CASE direction
+      DIR.UP
+        cylon.y := cylon.y - 1
+      DIR.RIGHT
+        cylon.x := cylon.x + 1
+      DIR.DOWN
+        cylon.y := cylon.y + 1
+      DIR.LEFT
+        cylon.x := cylon.x - 1
+    cursor.x.y(cylon.x, cylon.y, scr!)
+    out.string("o", 0, scr!)
 :
 
 PROC main (CHAN BYTE kyb?, scr!, err!)
   SEQ
     erase.screen(scr!)
+    print.screen(scr!)
     WHILE TRUE
-      print.screen(scr!)
+      SEQ
+        move.cylon(scr!, DIR.RIGHT)
 :
