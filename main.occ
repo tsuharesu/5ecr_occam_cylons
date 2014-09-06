@@ -1,7 +1,7 @@
 #INCLUDE "course.module"
 
 --{{{ CONSTANTS
-VAL [][]BYTE screen IS
+VAL [][]BYTE SCREEN IS
   --"0        1         2         3         4         5         6         7        ",
   --"123456789012345678901234567890123456789012345678901234567890123456789012345678"
    ["############################################################",  -- 01
@@ -16,7 +16,7 @@ VAL [][]BYTE screen IS
     "#                                                          #",  -- 10
     "############################################################"]: --  1
   --"123456789012345678901234567890123456789012345678901234567890123456789012345678"
-VAL []INT screen.points IS [1,1,60,11]:
+VAL []INT SCREEN.POINTS IS [1,1,60,11]:
 
 VAL INT DIR.UP IS 0:
 VAL INT DIR.RIGHT IS 1:
@@ -26,14 +26,65 @@ VAL INT DIR.LEFT IS 3:
 VAL INT CYLONS.SPEED IS 1:
 --}}}
 
-PROC print.screen (CHAN BYTE scr!)
-  SEQ
-    cursor.invisible(scr!)
-    cursor.x.y(1, 1, scr!)
-    SEQ x = 0 FOR SIZE screen
-      SEQ
-        out.string(screen[x], 0, scr!)
-        out.string("*n", 0, scr!)
+--{{{ PROTOCOLS
+--* Screen Protocol
+-- Using this so the screen can be claimed
+PROTOCOL SCRPROTO
+  CASE
+    clear.screen
+    string.x.y; BYTE; BYTE; BYTE::[]BYTE
+    int.x.y; BYTE; BYTE; INT
+    char.x.y; BYTE; BYTE; BYTE
+:
+--}}}
+
+--* Print the SCREEN (just once, pls)
+PROC init.screen (SHARED CHAN SCRPROTO out!)
+  CLAIM out!
+    SEQ
+      out ! clear.screen
+      SEQ y = 0 FOR SIZE SCREEN
+        out ! string.x.y; 1; ((BYTE y) + 1); BYTE (SIZE SCREEN[y])::SCREEN[y]
+:
+
+--* Display what needs to be displayed
+-- @param in? the SCRPROTO
+-- @param out! the screen
+PROC display (CHAN SCRPROTO in?, CHAN BYTE out!)
+  WHILE TRUE
+    PRI ALT
+      in ? CASE
+        --{{{  clear.screen
+        clear.screen
+          erase.screen(out!)
+          -- out.string ("*#1B[2J*#FF", 0, out!)
+        --}}}
+        --{{{  string.x.y
+        BYTE x, y, len:
+        [255]BYTE data:
+        string.x.y; x; y; len::data
+          SEQ
+            cursor.x.y (x, y, out!)
+            out.string ([data FOR (INT len)], 0, out!)
+            out ! #FF
+        --}}}
+        --{{{  int.x.y
+        BYTE x, y:
+        INT v:
+        int.x.y; x; y; v
+          SEQ
+            cursor.x.y (x, y, out!)
+            out.int (v, 0, out!)
+            out ! #FF
+        --}}}
+        --{{{  char.x.y
+        BYTE x, y, ch:
+        char.x.y; x; y; ch
+          SEQ
+            cursor.x.y (x, y, out!)
+            out ! ch
+            out ! #FF
+        --}}}
 :
 
 --* Cylon
@@ -47,59 +98,60 @@ DATA TYPE CYLON
 -- Place Cylon in screen
 -- @param cylon the cylon to place on screen
 -- @param scr! the screen to print the cylon
-PROC place.cylon(CYLON cylon, CHAN BYTE scr!)
-  INT seed, rand:
+PROC place.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
+  INT seed:
 
   SEQ
     TIMER tim:                               -- initialise random number seed
     tim ? seed
     seed := (seed >> 2) + 1
 
-    cylon[x], seed := random(screen.points[2], seed)
-    cylon[y], seed := random(screen.points[3], seed)
+    cylon[x], seed := random(SCREEN.POINTS[2], seed)
+    cylon[y], seed := random(SCREEN.POINTS[3], seed)
     cylon[linear.speed] := CYLONS.SPEED
 
-    cursor.x.y((BYTE cylon[x]), (BYTE cylon[y]), scr!)
-    out.string("o", 0, scr!)
+    CLAIM out!
+      out ! char.x.y; (BYTE cylon[x]); (BYTE cylon[y]); 'o'
 :
 
 --* Move the Cylon, removing the point
 -- @param cylon the cylon to move
 -- @param direction (use DIR.X variable)
-PROC move.cylon(CYLON cylon, VAL INT direction, CHAN BYTE scr!)
+PROC move.cylon(CYLON cylon, VAL INT direction, SHARED CHAN SCRPROTO out!)
   TIMER tim:
   INT t:
-  BYTE X, Y:
-  SEQ
-    tim ? t                 -- read current time
-    t := t PLUS 100000          -- add delay
-    tim ? AFTER t           -- wait until time "t"
+  CLAIM out!
+    SEQ
+      tim ? t                 -- read current time
+      t := t PLUS 100000          -- add delay
+      tim ? AFTER t           -- wait until time "t"
 
-    cursor.x.y((BYTE cylon[x]), (BYTE cylon[y]), scr!)
-    out.string(" ", 0, scr!)    -- remove from screen
+      out ! char.x.y; (BYTE cylon[x]); (BYTE cylon[y]); ' ' -- remove from screen
 
-    CASE direction
-      DIR.UP
-        cylon[y] := cylon[y] - cylon[linear.speed]
-      DIR.RIGHT
-        cylon[x] := cylon[x] + cylon[linear.speed]
-      DIR.DOWN
-        cylon[y] := cylon[y] + cylon[linear.speed]
-      DIR.LEFT
-        cylon[x] := cylon[x] - cylon[linear.speed]
+      CASE direction
+        DIR.UP
+          cylon[y] := cylon[y] - cylon[linear.speed]
+        DIR.RIGHT
+          cylon[x] := cylon[x] + cylon[linear.speed]
+        DIR.DOWN
+          cylon[y] := cylon[y] + cylon[linear.speed]
+        DIR.LEFT
+          cylon[x] := cylon[x] - cylon[linear.speed]
 
-    cursor.x.y((BYTE cylon[x]), (BYTE cylon[y]), scr!)
-    out.string("o", 0, scr!)    -- put it back
+      out ! char.x.y; (BYTE cylon[x]); (BYTE cylon[y]); 'o' -- put it back
 :
 
-PROC main (CHAN BYTE kyb?, scr!, err!)
+PROC main (CHAN BYTE scr!)
   CYLON c:
+  SHARED! CHAN SCRPROTO dpy.chan:
 
   SEQ
-    erase.screen(scr!)
-    print.screen(scr!)
-    place.cylon(c, scr!)
-
-    WHILE TRUE
-      move.cylon(c, DIR.RIGHT, scr!)
+    cursor.invisible(scr!)
+    PAR
+      display(dpy.chan?, scr!)
+      SEQ
+        init.screen(dpy.chan!)
+        place.cylon(c, dpy.chan!)
+        WHILE TRUE
+          move.cylon(c, DIR.RIGHT, dpy.chan!)
 :
