@@ -5,7 +5,7 @@ VAL [][]BYTE screen IS
   --"0        1         2         3         4         5         6         7        ",
   --"123456789012345678901234567890123456789012345678901234567890123456789012345678"
    ["############################################################",  -- 01
-    "#o                                                         #",  --  2
+    "#                                                          #",  --  2
     "#                                                          #",  --  3
     "#                                                          #",  --  4
     "#                                                          #",  --  5
@@ -16,12 +16,14 @@ VAL [][]BYTE screen IS
     "#                                                          #",  -- 10
     "############################################################"]: --  1
   --"123456789012345678901234567890123456789012345678901234567890123456789012345678"
-VAL []BYTE screen.points IS [1,1,20,11]:
+VAL []INT screen.points IS [1,1,60,11]:
 
 VAL INT DIR.UP IS 0:
 VAL INT DIR.RIGHT IS 1:
 VAL INT DIR.DOWN IS 2:
 VAL INT DIR.LEFT IS 3:
+
+VAL INT CYLONS.SPEED IS 1:
 --}}}
 
 PROC print.screen (CHAN BYTE scr!)
@@ -34,37 +36,70 @@ PROC print.screen (CHAN BYTE scr!)
         out.string("*n", 0, scr!)
 :
 
+--* Cylon
+--
+DATA TYPE CYLON
+  RECORD
+    INT x, y:                        --* Position
+    INT linear.speed:                --* Linear speed
+:
+
+-- Place Cylon in screen
+-- @param cylon the cylon to place on screen
+-- @param scr! the screen to print the cylon
+PROC place.cylon(CYLON cylon, CHAN BYTE scr!)
+  INT seed, rand:
+
+  SEQ
+    TIMER tim:                               -- initialise random number seed
+    tim ? seed
+    seed := (seed >> 2) + 1
+
+    cylon[x], seed := random(screen.points[2], seed)
+    cylon[y], seed := random(screen.points[3], seed)
+    cylon[linear.speed] := CYLONS.SPEED
+
+    cursor.x.y((BYTE cylon[x]), (BYTE cylon[y]), scr!)
+    out.string("o", 0, scr!)
+:
+
 --* Move the Cylon, removing the point
--- @params direction 0 - up, 1 - right, 2 - down, 3 - left
-PROC move.cylon(CHAN BYTE scr!, VAL INT direction)
-  INITIAL BYTE cylon.x IS 2:
-  INITIAL BYTE cylon.y IS 2:
+-- @param cylon the cylon to move
+-- @param direction (use DIR.X variable)
+PROC move.cylon(CYLON cylon, VAL INT direction, CHAN BYTE scr!)
   TIMER tim:
   INT t:
+  BYTE X, Y:
   SEQ
     tim ? t                 -- read current time
     t := t PLUS 100000          -- add delay
     tim ? AFTER t           -- wait until time "t"
-    cursor.x.y(cylon.x, cylon.y, scr!)
-    out.string(" ", 0, scr!)
+
+    cursor.x.y((BYTE cylon[x]), (BYTE cylon[y]), scr!)
+    out.string(" ", 0, scr!)    -- remove from screen
+
     CASE direction
       DIR.UP
-        cylon.y := cylon.y - 1
+        cylon[y] := cylon[y] - cylon[linear.speed]
       DIR.RIGHT
-        cylon.x := cylon.x + 1
+        cylon[x] := cylon[x] + cylon[linear.speed]
       DIR.DOWN
-        cylon.y := cylon.y + 1
+        cylon[y] := cylon[y] + cylon[linear.speed]
       DIR.LEFT
-        cylon.x := cylon.x - 1
-    cursor.x.y(cylon.x, cylon.y, scr!)
-    out.string("o", 0, scr!)
+        cylon[x] := cylon[x] - cylon[linear.speed]
+
+    cursor.x.y((BYTE cylon[x]), (BYTE cylon[y]), scr!)
+    out.string("o", 0, scr!)    -- put it back
 :
 
 PROC main (CHAN BYTE kyb?, scr!, err!)
+  CYLON c:
+
   SEQ
     erase.screen(scr!)
     print.screen(scr!)
+    place.cylon(c, scr!)
+
     WHILE TRUE
-      SEQ
-        move.cylon(scr!, DIR.RIGHT)
+      move.cylon(c, DIR.RIGHT, scr!)
 :
