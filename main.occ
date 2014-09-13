@@ -13,10 +13,9 @@ VAL [][]BYTE SCREEN IS
     "#                                                          #",  --  7
     "#                                                          #",  --  8
     "#                                                          #",  --  9
-    "#                                                          #",  -- 10
-    "############################################################"]: --  1
+    "############################################################"]: -- 10
   --"123456789012345678901234567890123456789012345678901234567890123456789012345678"
-VAL []INT SCREEN.POINTS IS [1,1,60,11]:
+VAL []INT SCREEN.POINTS IS [1,60,1,10]:
 
 VAL INT DIR.UP IS 0:
 VAL INT DIR.RIGHT IS 1:
@@ -57,7 +56,6 @@ PROC display (CHAN SCRPROTO in?, CHAN BYTE out!)
         --{{{  clear.screen
         clear.screen
           erase.screen(out!)
-          -- out.string ("*#1B[2J*#FF", 0, out!)
         --}}}
         --{{{  string.x.y
         BYTE x, y, len:
@@ -91,8 +89,9 @@ PROC display (CHAN SCRPROTO in?, CHAN BYTE out!)
 --
 DATA TYPE CYLON
   RECORD
-    INT x, y:                        --* Position
-    INT linear.speed:                --* Linear speed
+    INT x, y:           -- Position
+    INT linear.speed:   -- Linear speed
+    INT direction:      -- Direction to move
 :
 
 -- Place Cylon in screen
@@ -106,9 +105,12 @@ PROC place.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
     tim ? seed
     seed := (seed >> 2) + 1
 
-    cylon[x], seed := random(SCREEN.POINTS[2], seed)
-    cylon[y], seed := random(SCREEN.POINTS[3], seed)
+    cylon[x], seed := random(SCREEN.POINTS[1] - 3, seed)
+    cylon[x] := cylon[x] + 2                -- screen starts on 1
+    cylon[y], seed := random(SCREEN.POINTS[3] - 3, seed)
+    cylon[y] := cylon[y] + 2
     cylon[linear.speed] := CYLONS.SPEED
+    cylon[direction] := DIR.RIGHT
 
     CLAIM out!
       out ! char.x.y; (BYTE cylon[x]); (BYTE cylon[y]); 'o'
@@ -116,19 +118,18 @@ PROC place.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
 
 --* Move the Cylon, removing the point
 -- @param cylon the cylon to move
--- @param direction (use DIR.X variable)
-PROC move.cylon(CYLON cylon, VAL INT direction, SHARED CHAN SCRPROTO out!)
+REC PROC move.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
   TIMER tim:
-  INT t:
+  INT t, prev.x, prev.y:
   CLAIM out!
     SEQ
       tim ? t                 -- read current time
       t := t PLUS 100000          -- add delay
       tim ? AFTER t           -- wait until time "t"
 
-      out ! char.x.y; (BYTE cylon[x]); (BYTE cylon[y]); ' ' -- remove from screen
+      prev.x, prev.y := cylon[x], cylon[y]
 
-      CASE direction
+      CASE cylon[direction]
         DIR.UP
           cylon[y] := cylon[y] - cylon[linear.speed]
         DIR.RIGHT
@@ -138,7 +139,13 @@ PROC move.cylon(CYLON cylon, VAL INT direction, SHARED CHAN SCRPROTO out!)
         DIR.LEFT
           cylon[x] := cylon[x] - cylon[linear.speed]
 
-      out ! char.x.y; (BYTE cylon[x]); (BYTE cylon[y]); 'o' -- put it back
+      IF
+        (cylon[y] < SCREEN.POINTS[3]) AND (cylon[x] < SCREEN.POINTS[1]) AND (SCREEN[cylon[y]][cylon[x]] = ' ')
+          SEQ
+            out ! char.x.y; (BYTE prev.x); (BYTE prev.y); ' ' -- remove from screen
+            out ! char.x.y; (BYTE cylon[x]); (BYTE cylon[y]); 'o' -- put it back
+        TRUE
+          SKIP
 :
 
 PROC main (CHAN BYTE scr!)
@@ -153,5 +160,5 @@ PROC main (CHAN BYTE scr!)
         init.screen(dpy.chan!)
         place.cylon(c, dpy.chan!)
         WHILE TRUE
-          move.cylon(c, DIR.RIGHT, dpy.chan!)
+          move.cylon(c, dpy.chan!)
 :
