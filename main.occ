@@ -2,9 +2,10 @@
 
 --{{{ CONSTANTS
 VAL [][]BYTE SCREEN IS
-  --"0        1         2         3         4         5         6         7        ",
-  --"123456789012345678901234567890123456789012345678901234567890123456789012345678"
-   ["############################################################",  -- 01
+  --"0         1         2         3         4         5         6         7        ",
+  --"0123456789012345678901234567890123456789012345678901234567890123456789012345678"
+   ["############################################################",  -- 00
+    "#                                                          #",  --  1
     "#                                                          #",  --  2
     "#                                                          #",  --  3
     "#                                                          #",  --  4
@@ -12,10 +13,9 @@ VAL [][]BYTE SCREEN IS
     "#                                                          #",  --  6
     "#                                                          #",  --  7
     "#                                                          #",  --  8
-    "#                                                          #",  --  9
-    "############################################################"]: -- 10
+    "############################################################"]: --  9
   --"123456789012345678901234567890123456789012345678901234567890123456789012345678"
-VAL []INT SCREEN.POINTS IS [1,60,1,10]:
+VAL []INT SCREEN.POINTS IS [0,59,0,9]:
 
 VAL INT DIR.UP IS 0:
 VAL INT DIR.RIGHT IS 1:
@@ -43,7 +43,7 @@ PROC init.screen (SHARED CHAN SCRPROTO out!)
     SEQ
       out ! clear.screen
       SEQ y = 0 FOR SIZE SCREEN
-        out ! string.x.y; 1; ((BYTE y) + 1); BYTE (SIZE SCREEN[y])::SCREEN[y]
+        out ! string.x.y; 0; (BYTE y); BYTE (SIZE SCREEN[y])::SCREEN[y]
 :
 
 --* Display what needs to be displayed
@@ -62,7 +62,7 @@ PROC display (CHAN SCRPROTO in?, CHAN BYTE out!)
         [255]BYTE data:
         string.x.y; x; y; len::data
           SEQ
-            cursor.x.y (x, y, out!)
+            cursor.x.y (x + 1, y + 1, out!)
             out.string ([data FOR (INT len)], 0, out!)
             out ! #FF
         --}}}
@@ -71,7 +71,7 @@ PROC display (CHAN SCRPROTO in?, CHAN BYTE out!)
         INT v:
         int.x.y; x; y; v
           SEQ
-            cursor.x.y (x, y, out!)
+            cursor.x.y (x + 1, y + 1, out!)
             out.int (v, 0, out!)
             out ! #FF
         --}}}
@@ -79,7 +79,7 @@ PROC display (CHAN SCRPROTO in?, CHAN BYTE out!)
         BYTE x, y, ch:
         char.x.y; x; y; ch
           SEQ
-            cursor.x.y (x, y, out!)
+            cursor.x.y (x + 1, y + 1, out!)
             out ! ch
             out ! #FF
         --}}}
@@ -116,36 +116,57 @@ PROC place.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
       out ! char.x.y; (BYTE cylon[x]); (BYTE cylon[y]); 'o'
 :
 
+--* Change Cylon move direction
+--* Uses a random between 0 and 4 (exclusive)
+-- @param cylon The cylon to change
+PROC change.cylon.direction(CYLON cylon)
+  TIMER tim:
+  INT seed:
+  SEQ
+    tim ? seed
+    seed := (seed >> 2) + 1
+
+    cylon[direction], seed := random(4, seed)
+    --cylon[direction] := DIR.DOWN
+:
+
 --* Move the Cylon, removing the point
 -- @param cylon the cylon to move
 REC PROC move.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
   TIMER tim:
   INT t, prev.x, prev.y:
-  CLAIM out!
-    SEQ
-      tim ? t                 -- read current time
-      t := t PLUS 100000          -- add delay
-      tim ? AFTER t           -- wait until time "t"
+  SEQ
+    tim ? t                     -- read current time
+    t := t PLUS 10000          -- add delay
+    tim ? AFTER t               -- wait until time "t"
 
-      prev.x, prev.y := cylon[x], cylon[y]
+    prev.x, prev.y := cylon[x], cylon[y]
 
-      CASE cylon[direction]
-        DIR.UP
-          cylon[y] := cylon[y] - cylon[linear.speed]
-        DIR.RIGHT
-          cylon[x] := cylon[x] + cylon[linear.speed]
-        DIR.DOWN
-          cylon[y] := cylon[y] + cylon[linear.speed]
-        DIR.LEFT
-          cylon[x] := cylon[x] - cylon[linear.speed]
+    change.cylon.direction(cylon)
 
-      IF
-        (cylon[y] < SCREEN.POINTS[3]) AND (cylon[x] < SCREEN.POINTS[1]) AND (SCREEN[cylon[y]][cylon[x]] = ' ')
+    CASE cylon[direction]
+      DIR.UP
+        cylon[y] := cylon[y] - cylon[linear.speed]
+      DIR.DOWN
+        cylon[y] := cylon[y] + cylon[linear.speed]
+      DIR.LEFT
+        cylon[x] := cylon[x] - cylon[linear.speed]
+      DIR.RIGHT
+        cylon[x] := cylon[x] + cylon[linear.speed]
+
+    IF
+      --(cylon[x] > SCREEN.POINTS[0]) AND
+      --(cylon[x] < SCREEN.POINTS[1]) AND
+      --(cylon[y] > SCREEN.POINTS[2]) AND
+      --(cylon[y] < SCREEN.POINTS[3]) AND
+      (SCREEN[cylon[y]][cylon[x]] = ' ')
+        CLAIM out!
           SEQ
             out ! char.x.y; (BYTE prev.x); (BYTE prev.y); ' ' -- remove from screen
             out ! char.x.y; (BYTE cylon[x]); (BYTE cylon[y]); 'o' -- put it back
-        TRUE
-          SKIP
+      TRUE
+        cylon[x], cylon[y] := prev.x, prev.y
+
 :
 
 PROC main (CHAN BYTE scr!)
