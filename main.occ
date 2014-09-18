@@ -6,13 +6,13 @@ VAL [][]BYTE SCREEN IS
   --"0123456789012345678901234567890123456789012345678901234567890123456789012345678"
    ["############################################################",  -- 00
     "#                                                          #",  --  1
-    "#                                                          #",  --  2
-    "#                                                          #",  --  3
-    "#                                                          #",  --  4
-    "#                 ##############                           #",  --  5
-    "#                                                          #",  --  6
-    "#                                                          #",  --  7
-    "#                                                          #",  --  8
+    "#    #####                                     #           #",  --  2
+    "#                                              #           #",  --  3
+    "#                                              #           #",  --  4
+    "#      #          ##############               #           #",  --  5
+    "#        #                                     #           #",  --  6
+    "#          #                                   #           #",  --  7
+    "#            #                                             #",  --  8
     "############################################################"]: --  9
   --"123456789012345678901234567890123456789012345678901234567890123456789012345678"
 VAL []INT SCREEN.POINTS IS [0,59,0,9]:
@@ -97,7 +97,7 @@ DATA TYPE CYLON
 -- Place Cylon in screen
 -- @param cylon the cylon to place on screen
 -- @param scr! the screen to print the cylon
-PROC place.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
+REC PROC place.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
   INT seed:
 
   SEQ
@@ -111,8 +111,16 @@ PROC place.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
     cylon[linear.speed] := CYLONS.SPEED
     cylon[direction] := DIR.RIGHT
 
-    CLAIM out!
-      out ! char.x.y; (BYTE cylon[x]); (BYTE cylon[y]); 'o'
+    IF
+      --(cylon[x] > SCREEN.POINTS[0]) AND
+      --(cylon[x] < SCREEN.POINTS[1]) AND
+      --(cylon[y] > SCREEN.POINTS[2]) AND
+      --(cylon[y] < SCREEN.POINTS[3]) AND
+      (SCREEN[cylon[y]][cylon[x]] = ' ')
+        CLAIM out!
+          out ! char.x.y; (BYTE cylon[x]); (BYTE cylon[y]); 'o'
+      TRUE
+        place.cylon(cylon, out!)
 :
 
 --* Change Cylon move direction
@@ -169,7 +177,7 @@ PROC move.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
 :
 
 PROC main (CHAN BYTE scr!)
-  [10]CYLON cylons:
+  [20]CYLON cylons:
   SHARED! CHAN SCRPROTO dpy.chan:
 
   SEQ
