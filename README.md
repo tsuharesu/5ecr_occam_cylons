@@ -10,7 +10,7 @@ I'm not fluent nor have vast experience in Occam, so there may be some bug code,
 
 ## How to run
 1. Install Kroc (https://github.com/concurrency/kroc)
-2. occbuild --program main.occ
+2. kroc main.occ
 3. ./main OR occbuild --run main
 
 

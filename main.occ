@@ -103,7 +103,6 @@ PROC place.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
   SEQ
     TIMER tim:                               -- initialise random number seed
     tim ? seed
-    seed := (seed >> 2) + 1
 
     cylon[x], seed := random(SCREEN.POINTS[1] - 3, seed)
     cylon[x] := cylon[x] + 2                -- screen starts on 1
@@ -132,12 +131,12 @@ PROC change.cylon.direction(CYLON cylon)
 
 --* Move the Cylon, removing the point
 -- @param cylon the cylon to move
-REC PROC move.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
+PROC move.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
   TIMER tim:
   INT t, prev.x, prev.y:
   SEQ
     tim ? t                     -- read current time
-    t := t PLUS 10000          -- add delay
+    t := t PLUS 100000          -- add delay
     tim ? AFTER t               -- wait until time "t"
 
     prev.x, prev.y := cylon[x], cylon[y]
@@ -170,7 +169,7 @@ REC PROC move.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
 :
 
 PROC main (CHAN BYTE scr!)
-  CYLON c:
+  [10]CYLON cylons:
   SHARED! CHAN SCRPROTO dpy.chan:
 
   SEQ
@@ -179,7 +178,9 @@ PROC main (CHAN BYTE scr!)
       display(dpy.chan?, scr!)
       SEQ
         init.screen(dpy.chan!)
-        place.cylon(c, dpy.chan!)
+        SEQ i = 0 FOR SIZE cylons
+          place.cylon(cylons[i], dpy.chan!)
         WHILE TRUE
-          move.cylon(c, dpy.chan!)
+          PAR i = 0 FOR SIZE cylons
+            move.cylon(cylons[i], dpy.chan!)
 :
