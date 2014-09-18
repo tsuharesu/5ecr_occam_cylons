@@ -13,9 +13,16 @@ VAL [][]BYTE SCREEN IS
     "#        #                                     #           #",  --  6
     "#          #                                   #           #",  --  7
     "#            #                                             #",  --  8
-    "############################################################"]: --  9
+    "#            #                                             #",  --  9
+    "#            #                                             #",  -- 10
+    "#            #                                             #",  --  1
+    "#            #                                             #",  --  2
+    "#            #                                             #",  --  3
+    "#            #                                             #",  --  4
+    "#            #                                             #",  --  5
+    "############################################################"]: --  6
   --"123456789012345678901234567890123456789012345678901234567890123456789012345678"
-VAL []INT SCREEN.POINTS IS [0,59,0,9]:
+VAL []INT SCREEN.POINTS IS [0,59,0,16]:
 
 VAL INT DIR.UP IS 0:
 VAL INT DIR.RIGHT IS 1:
@@ -112,10 +119,6 @@ REC PROC place.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
     cylon[direction] := DIR.RIGHT
 
     IF
-      --(cylon[x] > SCREEN.POINTS[0]) AND
-      --(cylon[x] < SCREEN.POINTS[1]) AND
-      --(cylon[y] > SCREEN.POINTS[2]) AND
-      --(cylon[y] < SCREEN.POINTS[3]) AND
       (SCREEN[cylon[y]][cylon[x]] = ' ')
         CLAIM out!
           out ! char.x.y; (BYTE cylon[x]); (BYTE cylon[y]); 'o'
@@ -134,7 +137,6 @@ PROC change.cylon.direction(CYLON cylon)
     seed := (seed >> 2) + 1
 
     cylon[direction], seed := random(4, seed)
-    --cylon[direction] := DIR.DOWN
 :
 
 --* Move the Cylon, removing the point
@@ -162,10 +164,6 @@ PROC move.cylon(CYLON cylon, SHARED CHAN SCRPROTO out!)
         cylon[x] := cylon[x] + cylon[linear.speed]
 
     IF
-      --(cylon[x] > SCREEN.POINTS[0]) AND
-      --(cylon[x] < SCREEN.POINTS[1]) AND
-      --(cylon[y] > SCREEN.POINTS[2]) AND
-      --(cylon[y] < SCREEN.POINTS[3]) AND
       (SCREEN[cylon[y]][cylon[x]] = ' ')
         CLAIM out!
           SEQ
